@@ -700,7 +700,9 @@
             });
 
             rawNodes = Array.from(nodeMap.values());
+            updateToolsList(); // Should be called before updateGraphData? Or inside. It is called inside.
             updateGraphData();
+            setTimeout(resetZoom, 500); // Ensure view is centered after load
         }
 
         function updateGraphData() {
@@ -963,6 +965,10 @@
                 })
                 .style('stroke', d => {
                     if (d.type === 'group') return colorMap[d.groupType] || '#30363d';
+                    return null; // CSS handles others
+                })
+                .style('fill', d => {
+                    if (d.type === 'group') return colorMap[d.groupType] || '#ccc';
                     return null; // CSS handles others
                 });
 
