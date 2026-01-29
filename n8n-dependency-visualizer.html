@@ -601,7 +601,18 @@
             rawLinks = [];
             const nodeMap = new Map();
 
+            // Helper to extract value from n8n parameters (handle strings or RL objects)
+            const getVal = (v) => {
+                if (v === null || v === undefined) return '';
+                if (typeof v === 'string') return v;
+                if (typeof v === 'object') {
+                    return v.cachedResultName || v.value || JSON.stringify(v);
+                }
+                return String(v);
+            };
+
             files.forEach(workflow => {
+
                 const workflowId = workflow.id;
                 const workflowName = workflow.name;
 
@@ -616,85 +627,72 @@
 
                     // OpenAI
                     if (nodeType.includes('openai') || nodeType.includes('OpenAi') || creds.openAiApi) {
-                        const modelParam = params.model || params.modelName || (creds.openAiApi ? creds.openAiApi.name : null) || 'OpenAI';
-                        const sourceId = `openai_${modelParam}`;
-                        addNode(nodeMap, sourceId, modelParam, 'openai');
+                        const modelName = getVal(params.model || params.modelId || params.modelName || 'OpenAI');
+                        const sourceId = `openai_${modelName}`;
+                        addNode(nodeMap, sourceId, modelName, 'openai');
                         rawLinks.push({ source: workflowId, target: sourceId, type: 'uses' });
 
                         if (creds.openAiApi) {
-                            const credId = `cred_openai_${creds.openAiApi.name || creds.openAiApi.id}`;
-                            addNode(nodeMap, credId, creds.openAiApi.name || 'OpenAI API', 'credential openai');
+                            const credName = getVal(creds.openAiApi.name || creds.openAiApi.id || 'OpenAI API');
+                            const credId = `cred_openai_${credName}`;
+                            // Use distinct type for credentials to keep them clustered differently if needed
+                            addNode(nodeMap, credId, `Cred: ${credName}`, 'credential openai');
                             rawLinks.push({ source: sourceId, target: credId, type: 'auth' });
                         }
                     }
 
                     // Qdrant (Vector Store)
-                    if (nodeType.includes('qdrant') || nodeType.includes('Qdrant') || creds.qdrantRestApi) {
-                        const collection = params.collectionName?.value || params.collectionName || 'Qdrant';
+                    if (nodeType.includes('qdrant') || nodeType.includes('Qdrant') || creds.qdrantRestApi || creds.qdrantApi) {
+                        const qCreds = creds.qdrantRestApi || creds.qdrantApi;
+                        const collection = getVal(params.collectionName || params.qdrantCollection || 'Qdrant');
                         const sourceId = `qdrant_${collection}`;
-                        addNode(nodeMap, sourceId, collection, 'other'); // Categorized as 'other' for now
+                        addNode(nodeMap, sourceId, collection, 'other');
                         rawLinks.push({ source: workflowId, target: sourceId, type: 'uses' });
 
-                        if (creds.qdrantRestApi) {
-                            const credId = `cred_qdrant_${creds.qdrantRestApi.name || creds.qdrantRestApi.id}`;
-                            addNode(nodeMap, credId, creds.qdrantRestApi.name || 'Qdrant API', 'credential other');
+                        if (qCreds) {
+                            const credName = getVal(qCreds.name || qCreds.id || 'Qdrant API');
+                            const credId = `cred_qdrant_${credName}`;
+                            addNode(nodeMap, credId, `Cred: ${credName}`, 'credential other');
                             rawLinks.push({ source: sourceId, target: credId, type: 'auth' });
                         }
                     }
 
+
                     // Supabase
                     if (nodeType.includes('supabase') || nodeType.includes('Supabase') || nodeType.includes('vectorStoreSupabase')) {
-                        let tableName = null;
-                        if (params.tableName) {
-                            if (typeof params.tableName === 'string') {
-                                tableName = params.tableName;
-                            } else if (params.tableName.value) {
-                                tableName = params.tableName.value;
-                            } else if (params.tableName.cachedResultName) {
-                                tableName = params.tableName.cachedResultName;
-                            }
-                        }
-
+                        const tableName = getVal(params.tableName || 'Supabase');
                         if (tableName) {
                             const sourceId = `supabase_${tableName}`;
                             addNode(nodeMap, sourceId, tableName, 'supabase');
                             rawLinks.push({ source: workflowId, target: sourceId, type: 'uses' });
 
                             if (creds.supabaseApi) {
-                                const credId = `cred_supabase_${creds.supabaseApi.name || creds.supabaseApi.id}`;
-                                addNode(nodeMap, credId, creds.supabaseApi.name || 'Supabase API', 'credential supabase');
+                                const cName = getVal(creds.supabaseApi.name || creds.supabaseApi.id || 'Supabase API');
+                                const credId = `cred_supabase_${cName}`;
+                                addNode(nodeMap, credId, `Cred: ${cName}`, 'credential supabase');
                                 rawLinks.push({ source: sourceId, target: credId, type: 'auth' });
                             }
                         }
                     }
 
+
                     // Notion
                     if (nodeType.includes('notion') || nodeType.includes('Notion')) {
-                        let databaseName = null;
-                        if (params.databaseId) {
-                            if (typeof params.databaseId === 'string') {
-                                databaseName = params.databaseId;
-                            } else if (params.databaseId.cachedResultName) {
-                                databaseName = params.databaseId.cachedResultName;
-                            } else if (params.databaseId.value) {
-                                databaseName = params.databaseId.value;
-                            }
-                        } else if (params.tableName?.cachedResultName) {
-                            databaseName = params.tableName.cachedResultName;
-                        }
-
+                        const databaseName = getVal(params.databaseId || params.tableName || 'Notion');
                         if (databaseName) {
                             const sourceId = `notion_${databaseName}`;
                             addNode(nodeMap, sourceId, databaseName, 'notion');
                             rawLinks.push({ source: workflowId, target: sourceId, type: 'uses' });
 
                             if (creds.notionApi) {
-                                const credId = `cred_notion_${creds.notionApi.name || creds.notionApi.id}`;
-                                addNode(nodeMap, credId, creds.notionApi.name || 'Notion API', 'credential notion');
+                                const cName = getVal(creds.notionApi.name || creds.notionApi.id || 'Notion API');
+                                const credId = `cred_notion_${cName}`;
+                                addNode(nodeMap, credId, `Cred: ${cName}`, 'credential notion');
                                 rawLinks.push({ source: sourceId, target: credId, type: 'auth' });
                             }
                         }
                     }
+
 
                     // BigQuery
                     if (nodeType.includes('bigquery') || nodeType.includes('BigQuery')) {
@@ -1083,7 +1081,8 @@
 
             simulation.on('tick', () => {
                 const alpha = simulation.alpha();
-                const k = alpha * 0.1; // Suavizado
+                const k = alpha * 0.5; // Stronger clustering
+
 
                 Object.values(groups).forEach(groupNodes => {
                     if (groupNodes.length < 2) return;
