@@ -175,6 +175,8 @@
         .node circle {
             stroke: #30363d;
             stroke-width: 2px;
+            fill: #8b949e;
+            /* Cor padrão para visibilidade */
         }
 
         .node text {
@@ -382,6 +384,35 @@
             padding: 2px 6px;
             border-radius: 4px;
         }
+
+        .folder-upload {
+            display: block;
+            width: 100%;
+            padding: 12px;
+            background: #21262d;
+            border: 2px dashed #30363d;
+            border-radius: 6px;
+            text-align: center;
+            cursor: pointer;
+            margin-bottom: 20px;
+            transition: all 0.2s;
+        }
+
+        .folder-upload:hover {
+            border-color: #58a6ff;
+            background: #262c36;
+        }
+
+        .folder-upload span {
+            display: block;
+            font-size: 13px;
+            color: #8b949e;
+            margin-top: 4px;
+        }
+
+        #folderInput {
+            display: none;
+        }
     </style>
 </head>
 
@@ -397,9 +428,18 @@
                 </div>
 
                 <div id="manualConnect" style="display:none;">
+                    <div class="folder-upload" onclick="document.getElementById('folderInput').click()">
+                        <strong>📁 Carregar Pasta de Workflows</strong>
+                        <span>Selecione a pasta 'n8n_workflows_export'</span>
+                    </div>
+                    <input type="file" id="folderInput" webkitdirectory directory multiple
+                        onchange="handleFolderSelect(event)">
+
+                    <div style="text-align: center; margin: 15px 0; color: #8b949e; font-size: 12px;">— OU —</div>
+
                     <input type="text" id="n8nUrl" placeholder="URL do n8n (ex: https://n8n.seudominio.com)">
                     <input type="password" id="n8nKey" placeholder="API Key (X-N8N-API-KEY)">
-                    <button onclick="fetchFromApi()">Conectar & Carregar</button>
+                    <button onclick="fetchFromApi()" style="width: 100%">Conectar & Carregar via API</button>
                     <div style="margin-top: 8px; font-size: 11px; color: #8b949e;">
                         *Requer configuração de CORS no n8n.
                     </div>
@@ -474,12 +514,17 @@
         // Initialize graph
         function initGraph() {
             const container = d3.select('#graph');
-            const width = container.node().getBoundingClientRect().width;
-            const height = container.node().getBoundingClientRect().height;
+            container.selectAll('*').remove(); // Garante que não duplique o SVG
+
+            const width = container.node().getBoundingClientRect().width || 800;
+            const height = container.node().getBoundingClientRect().height || 600;
+
+            console.log('Iniciando grafo com dimensões:', width, height);
 
             svg = container.append('svg')
                 .attr('width', width)
                 .attr('height', height);
+
 
             // Add arrow marker
             svg.append('defs').append('marker')
@@ -1012,16 +1057,14 @@
                 .attr('dy', d => d.type === 'group' ? 45 : 30)
                 .attr('text-anchor', 'middle')
                 .text(d => {
-                    if (d.type === 'group') return d.label;
-                    return d.label.length > 15 ? d.label.substring(0, 15) + '...' : d.label;
+                    const label = d.label || d.id || 'Desconhecido';
+                    if (d.type === 'group') return label;
+                    return label.length > 15 ? label.substring(0, 15) + '...' : label;
                 });
 
             simulation.nodes(graphData.nodes);
             simulation.force('link').links(graphData.links);
 
-            // Calculate groups once per render to avoid overhead for visual clustering
-            // Note: This logic moves nodes of the SAME kind together. 
-            // If they are already grouped into a single node, this does strictly nothing for that group.
             const groups = {};
             graphData.nodes.forEach(d => {
                 const group = d.type === 'group' ? 'group' : getGroup(d);
@@ -1030,33 +1073,37 @@
             });
 
             simulation.on('tick', () => {
-                // Apply clustering force
                 const alpha = simulation.alpha();
-                const k = alpha * 0.5; // Strength of clustering
+                const k = alpha * 0.1; // Suavizado
 
                 Object.values(groups).forEach(groupNodes => {
                     if (groupNodes.length < 2) return;
-
-                    // Calculate centroid
-                    let x = 0, y = 0;
-                    groupNodes.forEach(d => { x += d.x; y += d.y; });
-                    x /= groupNodes.length;
-                    y /= groupNodes.length;
-
-                    // Move nodes towards centroid
+                    let x = 0, y = 0, count = 0;
                     groupNodes.forEach(d => {
-                        d.x += (x - d.x) * k;
-                        d.y += (y - d.y) * k;
+                        if (!isNaN(d.x) && !isNaN(d.y)) {
+                            x += d.x; y += d.y; count++;
+                        }
                     });
+                    if (count > 0) {
+                        x /= count; y /= count;
+                        groupNodes.forEach(d => {
+                            if (!isNaN(d.x) && !isNaN(d.y)) {
+                                d.x += (x - d.x) * k;
+                                d.y += (y - d.y) * k;
+                            }
+                        });
+                    }
                 });
 
                 link.attr('d', d => {
-                    const dx = d.target.x - d.source.x;
-                    const dy = d.target.y - d.source.y;
+                    if (!d.source || !d.target || isNaN(d.source.x) || isNaN(d.target.x)) return null;
                     return `M${d.source.x},${d.source.y}L${d.target.x},${d.target.y}`;
                 });
 
-                node.attr('transform', d => `translate(${d.x},${d.y})`);
+                node.attr('transform', d => {
+                    if (isNaN(d.x) || isNaN(d.y)) return null;
+                    return `translate(${d.x},${d.y})`;
+                });
             });
 
             simulation.alpha(1).restart();
@@ -1104,16 +1151,64 @@
 
             try {
                 const response = await fetch('n8n_data.json');
-                if (!response.ok) throw new Error('Arquivo de dados não encontrado');
+                if (!response.ok) throw new Error('Arquivo n8n_data.json não encontrado');
 
                 const data = await response.json();
-                processWorkflows(data);
-                status.textContent = 'Dados carregados automaticamente via GitHub Actions 🚀';
-                status.style.color = '#3fb950';
+                console.log('Dados carregados:', Array.isArray(data) ? data.length + ' workflows' : 'Formato inválido');
+
+                if (Array.isArray(data)) {
+                    processWorkflows(data);
+                    status.textContent = 'Dados carregados automaticamente via GitHub Actions 🚀';
+                    status.style.color = '#3fb950';
+                } else {
+                    throw new Error('Formato de dados inválido (esperado array)');
+                }
             } catch (e) {
-                console.log('Auto-load failed, showing manual connection', e);
+                console.error('Falha no auto-load:', e);
                 status.style.display = 'none';
                 manual.style.display = 'block';
+            }
+        }
+
+        async function handleFolderSelect(event) {
+            const files = Array.from(event.target.files).filter(f => f.name.endsWith('.json'));
+            if (files.length === 0) {
+                alert('Nenhum arquivo .json encontrado na pasta selecionada.');
+                return;
+            }
+
+            const status = document.getElementById('autoLoadStatus');
+            status.style.display = 'block';
+            status.textContent = `Carregando ${files.length} arquivos...`;
+            status.style.color = '#58a6ff';
+
+            try {
+                const workflowData = [];
+                for (const file of files) {
+                    const text = await file.text();
+                    try {
+                        const json = JSON.parse(text);
+                        if (Array.isArray(json)) {
+                            workflowData.push(...json);
+                        } else {
+                            workflowData.push(json);
+                        }
+                    } catch (e) {
+                        console.warn(`Erro ao processar ${file.name}:`, e);
+                    }
+                }
+
+                if (workflowData.length > 0) {
+                    processWorkflows(workflowData);
+                    status.textContent = `${workflowData.length} fluxos carregados localmente ✅`;
+                    status.style.color = '#3fb950';
+                    document.getElementById('manualConnect').style.display = 'none';
+                } else {
+                    throw new Error('Nenhum dado de workflow válido encontrado.');
+                }
+            } catch (e) {
+                alert('Erro ao processar pasta: ' + e.message);
+                status.style.display = 'none';
             }
         }
 
