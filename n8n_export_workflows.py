@@ -4,6 +4,7 @@ import re
 import json
 from pathlib import Path
 from urllib.parse import urljoin
+from datetime import datetime, timezone
 
 import requests
 from dotenv import load_dotenv
@@ -114,11 +115,20 @@ for w in workflows:
 bundle_path = Path(OUT_DIR) / "n8n_data.json"
 root_bundle_path = Path("n8n_data.json")
 
+# Criar objeto final com metadados
+final_data = {
+    "metadata": {
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "workflow_count": exported
+    },
+    "workflows": all_workflows_data
+}
+
 with open(bundle_path, "w", encoding="utf-8") as f:
-    json.dump(all_workflows_data, f, ensure_ascii=False, indent=2, default=str)
+    json.dump(final_data, f, ensure_ascii=False, indent=2, default=str)
 
 with open(root_bundle_path, "w", encoding="utf-8") as f:
-    json.dump(all_workflows_data, f, ensure_ascii=False, indent=2, default=str)
+    json.dump(final_data, f, ensure_ascii=False, indent=2, default=str)
 
 print(f"\nOK. Total: {exported} workflows em '{OUT_DIR}/'")
 print(f"Bundle salvo em: {bundle_path} e {root_bundle_path}")

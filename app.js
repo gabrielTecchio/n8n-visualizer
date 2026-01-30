@@ -164,12 +164,15 @@ function addNode(map, id, label, type) {
  * Data Parser: Converts list of n8n workflow objects into graph nodes and links
  */
 
-function processWorkflows(files) {
+function processWorkflows(data) {
     rawNodes = [];
     rawLinks = [];
     const nodeMap = new Map();
 
-    files.forEach(workflow => {
+    // Handle both legacy array and new metadata object
+    const workflows = Array.isArray(data) ? data : (data.workflows || []);
+
+    workflows.forEach(workflow => {
         const workflowId = workflow.id;
         const workflowName = workflow.name;
 
@@ -565,22 +568,22 @@ async function tryAutoLoad() {
             if (!res.ok) continue;
 
             const data = await res.json();
-            if (Array.isArray(data)) {
+            if (data) {
                 processWorkflows(data);
-                status.textContent = `Dados carregados de ${path} 🚀`;
-                status.style.color = '#3fb950';
-                manual.style.display = 'none';
 
-                // Adiciona botão de atualizar manualmente se houver token
-                if (localStorage.getItem('gh_pat')) {
-                    const refreshBtn = document.createElement('button');
-                    refreshBtn.textContent = '🔄 Forçar Atualização GitHub';
-                    refreshBtn.className = 'secondary';
-                    refreshBtn.style.width = '100%';
-                    refreshBtn.style.marginTop = '10px';
-                    refreshBtn.onclick = triggerGitHubAction;
-                    status.appendChild(refreshBtn);
-                }
+                // Meta-informação (Data da geração)
+                const metadata = data.metadata || {};
+                const dateStr = metadata.generated_at ? new Date(metadata.generated_at).toLocaleString() : 'Data desconhecida';
+
+                status.innerHTML = `
+                    <div style="display: flex; flex-direction: column; gap: 8px; background: #161b22; border: 1px solid #30363d; padding: 10px; border-radius: 6px; margin-bottom: 12px;">
+                        <span style="font-size: 11px; color: #8b949e;">Última atualização: <strong style="color: #e6edf3;">${dateStr}</strong></span>
+                        <button onclick="triggerGitHubAction()" class="secondary" style="font-size: 11px; padding: 4px 8px; width: fit-content;">🔄 Atualizar Dados</button>
+                    </div>
+                `;
+
+                status.style.display = 'block';
+                manual.style.display = 'none';
                 return; // Sucesso!
             }
         } catch (e) {
