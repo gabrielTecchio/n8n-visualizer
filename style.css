@@ -180,7 +180,8 @@ button.secondary:hover {
 .node circle {
     stroke: #30363d;
     stroke-width: 2px;
-    fill: #8b949e; /* Default color for visibility */
+    fill: #8b949e;
+    /* Default color for visibility */
 }
 
 .node text {
@@ -209,13 +210,44 @@ button.secondary:hover {
 }
 
 /* Entity Colors */
-.node.workflow circle { fill: #f85149; stroke: #f85149; } /* Red */
-.node.supabase circle { fill: #3ECF8E; } /* Green */
-.node.notion circle { fill: #a371f7; } /* Purple */
-.node.bigquery circle { fill: #4285f4; } /* Blue */
-.node.microsoft circle { fill: #f9ba48; } /* Orange */
-.node.google circle { fill: #ff00ff; } /* Pink */
-.node.openai circle { fill: #ffffff; stroke: #30363d; stroke-width: 2px; } /* White */
+.node.workflow circle {
+    fill: #f85149;
+    stroke: #f85149;
+}
+
+/* Red */
+.node.supabase circle {
+    fill: #3ECF8E;
+}
+
+/* Green */
+.node.notion circle {
+    fill: #a371f7;
+}
+
+/* Purple */
+.node.bigquery circle {
+    fill: #4285f4;
+}
+
+/* Blue */
+.node.microsoft circle {
+    fill: #f9ba48;
+}
+
+/* Orange */
+.node.google circle {
+    fill: #ff00ff;
+}
+
+/* Pink */
+.node.openai circle {
+    fill: #ffffff;
+    stroke: #30363d;
+    stroke-width: 2px;
+}
+
+/* White */
 
 /* Credential Dots (Dashed circles) */
 .node.credential circle {
@@ -226,12 +258,29 @@ button.secondary:hover {
 }
 
 /* Colored credential borders per platform */
-.node.credential.supabase circle { stroke: #3ECF8E; }
-.node.credential.notion circle { stroke: #a371f7; }
-.node.credential.bigquery circle { stroke: #4285f4; }
-.node.credential.microsoft circle { stroke: #f9ba48; }
-.node.credential.google circle { stroke: #ff00ff; }
-.node.credential.openai circle { stroke: #ffffff !important; }
+.node.credential.supabase circle {
+    stroke: #3ECF8E;
+}
+
+.node.credential.notion circle {
+    stroke: #a371f7;
+}
+
+.node.credential.bigquery circle {
+    stroke: #4285f4;
+}
+
+.node.credential.microsoft circle {
+    stroke: #f9ba48;
+}
+
+.node.credential.google circle {
+    stroke: #ff00ff;
+}
+
+.node.credential.openai circle {
+    stroke: #ffffff !important;
+}
 
 /* Group Nodes (Aggregated views) */
 .node.group circle {
@@ -296,8 +345,13 @@ button.secondary:hover {
     transition: background 0.2s;
 }
 
-.legend-item:hover { background: #21262d; }
-.legend-item.collapsed { opacity: 0.5; }
+.legend-item:hover {
+    background: #21262d;
+}
+
+.legend-item.collapsed {
+    opacity: 0.5;
+}
 
 .legend-dot {
     width: 12px;
@@ -305,7 +359,9 @@ button.secondary:hover {
     border-radius: 50%;
 }
 
-.export-btn { margin-left: auto; }
+.export-btn {
+    margin-left: auto;
+}
 
 /* Filter Categories Section */
 .category-header {
@@ -321,7 +377,9 @@ button.secondary:hover {
     justify-content: space-between;
 }
 
-.category-header:hover { color: #58a6ff; }
+.category-header:hover {
+    color: #58a6ff;
+}
 
 .category-toggle {
     font-size: 10px;
@@ -329,31 +387,3 @@ button.secondary:hover {
     padding: 2px 6px;
     border-radius: 4px;
 }
-
-/* Folder Upload Interface */
-.folder-upload {
-    display: block;
-    width: 100%;
-    padding: 12px;
-    background: #21262d;
-    border: 2px dashed #30363d;
-    border-radius: 6px;
-    text-align: center;
-    cursor: pointer;
-    margin-bottom: 20px;
-    transition: all 0.2s;
-}
-
-.folder-upload:hover {
-    border-color: #58a6ff;
-    background: #262c36;
-}
-
-.folder-upload span {
-    display: block;
-    font-size: 13px;
-    color: #8b949e;
-    margin-top: 4px;
-}
-
-#folderInput { display: none; }

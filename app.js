@@ -553,7 +553,6 @@ function dragended(event, d) { if (!event.active) simulation.alphaTarget(0); d.f
  */
 async function tryAutoLoad() {
     const status = document.getElementById('autoLoadStatus');
-    const manual = document.getElementById('manualConnect');
 
     status.style.display = 'block';
     status.textContent = 'Tentando carregar dados automáticos...';
@@ -575,15 +574,15 @@ async function tryAutoLoad() {
                 const metadata = data.metadata || {};
                 const dateStr = metadata.generated_at ? new Date(metadata.generated_at).toLocaleString() : 'Data desconhecida';
 
-                status.innerHTML = `
-                    <div style="display: flex; flex-direction: column; gap: 8px; background: #161b22; border: 1px solid #30363d; padding: 10px; border-radius: 6px; margin-bottom: 12px;">
-                        <span style="font-size: 11px; color: #8b949e;">Última atualização: <strong style="color: #e6edf3;">${dateStr}</strong></span>
-                        <button onclick="triggerGitHubAction()" class="secondary" style="font-size: 11px; padding: 4px 8px; width: fit-content;">🔄 Atualizar Dados</button>
-                    </div>
-                `;
+                const freshnessPanel = document.getElementById('dataFreshness');
+                const lastUpdateDate = document.getElementById('lastUpdateDate');
+                if (freshnessPanel && lastUpdateDate) {
+                    lastUpdateDate.textContent = dateStr;
+                    freshnessPanel.style.display = 'block';
+                }
 
+                status.textContent = `Arquivo carregado: ${path}`;
                 status.style.display = 'block';
-                manual.style.display = 'none';
                 return; // Sucesso!
             }
         } catch (e) {
@@ -592,8 +591,8 @@ async function tryAutoLoad() {
     }
 
     // Se chegou aqui, falhou em todos os caminhos
-    manual.style.display = 'block';
-    status.style.display = 'none';
+    status.textContent = 'Nenhum dado encontrado. Configure o Token para gerar.';
+    status.style.display = 'block';
 
     // Se não encontrou dados, tenta disparar o GitHub Action
     triggerGitHubAction();
@@ -605,7 +604,6 @@ async function tryAutoLoad() {
 async function triggerGitHubAction() {
     const token = localStorage.getItem('gh_pat');
     const status = document.getElementById('autoLoadStatus');
-    const manual = document.getElementById('manualConnect');
 
     if (!token) {
         status.style.display = 'block';
@@ -638,8 +636,6 @@ async function triggerGitHubAction() {
         if (response.ok) {
             status.textContent = '🚀 Automação iniciada! Os dados estarão prontos em alguns minutos. Recarregue a página em breve.';
             status.style.color = '#3fb950';
-            // Oculta campos manuais se a automação foi disparada com sucesso
-            manual.style.display = 'none';
         } else {
             const err = await response.json();
             console.error('GitHub API Error:', err);
@@ -662,61 +658,6 @@ function saveGitHubToken() {
     }
 }
 
-async function handleFolderSelect(event) {
-    const files = Array.from(event.target.files).filter(f => f.name.endsWith('.json'));
-    const status = document.getElementById('autoLoadStatus');
-
-    if (files.length === 0) {
-        alert('Nenhum arquivo .json encontrado.');
-        return;
-    }
-
-    status.style.display = 'block';
-    status.textContent = `Processando ${files.length} arquivos...`;
-    status.style.color = '#58a6ff';
-
-    let workflowData = [];
-    for (const file of files) {
-        try {
-            const text = await file.text();
-            const json = JSON.parse(text);
-            if (Array.isArray(json)) {
-                workflowData.push(...json);
-            } else {
-                workflowData.push(json);
-            }
-        } catch (e) {
-            console.warn(`Erro ao processar ${file.name}:`, e);
-        }
-    }
-
-    if (workflowData.length > 0) {
-        console.log(`Processando ${workflowData.length} workflows carregados manualmente.`);
-        processWorkflows(workflowData);
-        status.textContent = `${workflowData.length} fluxos carregados ✅`;
-        status.style.color = '#3fb950';
-        document.getElementById('manualConnect').style.display = 'none';
-    } else {
-        alert('Nenhum workflow válido encontrado nos arquivos selecionados.');
-        status.style.display = 'none';
-    }
-}
-
-async function fetchFromApi() {
-    const url = document.getElementById('n8nUrl').value.replace(/\/$/, '');
-    const key = document.getElementById('n8nKey').value;
-    if (!url || !key) return alert('URL e API Key são obrigatórios');
-
-    try {
-        const res = await fetch(`${url}/api/v1/workflows`, { headers: { 'X-N8N-API-KEY': key } });
-        const list = (await res.json()).data || [];
-        const details = await Promise.all(list.map(w => fetch(`${url}/api/v1/workflows/${w.id}`, { headers: { 'X-N8N-API-KEY': key } }).then(r => r.json())));
-        processWorkflows(details);
-        document.getElementById('manualConnect').style.display = 'none';
-    } catch (e) {
-        alert('Erro ao conectar. Verifique o CORS no n8n.');
-    }
-}
 
 function exportMarkdown() {
     let md = '# n8n Dependencies Report\n';

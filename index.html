@@ -19,29 +19,18 @@
 
             <!-- Loader / Connection Panels -->
             <div id="connectionPanel">
+                <div id="dataFreshness"
+                    style="display:none; background: #161b22; border: 1px solid #30363d; padding: 10px; border-radius: 6px; margin-bottom: 12px;">
+                    <div style="font-size: 11px; color: #8b949e; margin-bottom: 8px;">
+                        Última atualização: <strong id="lastUpdateDate" style="color: #e6edf3;">Buscando...</strong>
+                    </div>
+                    <button id="refreshDataBtn" onclick="triggerGitHubAction()" class="secondary"
+                        style="font-size: 11px; padding: 4px 8px; width: fit-content;">🔄 Atualizar Dados</button>
+                </div>
+
                 <div id="autoLoadStatus" style="display:none; color: #8b949e; font-size: 13px; margin-bottom: 12px;">
                 </div>
 
-                <div id="manualConnect" style="display:none;">
-                    <h2>Carregar Dados</h2>
-                    <div class="folder-upload" onclick="document.getElementById('folderInput').click()">
-                        <strong>📁 Carregar Pasta de Workflows</strong>
-                        <span>Selecione a pasta 'n8n_workflows_export'</span>
-                    </div>
-                    <!-- Webkitdirectory allows folder selection in modern browsers -->
-                    <input type="file" id="folderInput" webkitdirectory directory multiple
-                        onchange="handleFolderSelect(event)">
-
-                    <div style="text-align: center; margin: 15px 0; color: #8b949e; font-size: 12px;">— OU CONECTAR VIA
-                        API —</div>
-
-                    <input type="text" id="n8nUrl" placeholder="URL do n8n (ex: https://n8n.seudominio.com)">
-                    <input type="password" id="n8nKey" placeholder="API Key (X-N8N-API-KEY)">
-                    <button onclick="fetchFromApi()" style="width: 100%">Conectar & Carregar</button>
-                    <div style="margin-top: 8px; font-size: 11px; color: #8b949e;">
-                        *Requer configuração de CORS no seu servidor n8n.
-                    </div>
-                </div>
             </div>
 
             <!-- Global Stats -->
