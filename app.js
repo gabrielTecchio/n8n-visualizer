@@ -16,6 +16,13 @@ let simulation;
 let svg, g;
 let selectedTool = null;
 
+/* GitHub Configuration */
+const GITHUB_CONFIG = {
+    owner: 'gabrielTecchio',
+    repo: 'n8n-visualizer',
+    workflow: 'n8n-visualizer.yml'
+};
+
 // Grouping State: Controls if entities of a certain type are collapsed into a single group node.
 // Default is false (collapsed) for a cleaner initial view.
 let groupState = {
@@ -563,6 +570,17 @@ async function tryAutoLoad() {
                 status.textContent = `Dados carregados de ${path} 🚀`;
                 status.style.color = '#3fb950';
                 manual.style.display = 'none';
+
+                // Adiciona botão de atualizar manualmente se houver token
+                if (localStorage.getItem('gh_pat')) {
+                    const refreshBtn = document.createElement('button');
+                    refreshBtn.textContent = '🔄 Forçar Atualização GitHub';
+                    refreshBtn.className = 'secondary';
+                    refreshBtn.style.width = '100%';
+                    refreshBtn.style.marginTop = '10px';
+                    refreshBtn.onclick = triggerGitHubAction;
+                    status.appendChild(refreshBtn);
+                }
                 return; // Sucesso!
             }
         } catch (e) {
@@ -573,6 +591,72 @@ async function tryAutoLoad() {
     // Se chegou aqui, falhou em todos os caminhos
     manual.style.display = 'block';
     status.style.display = 'none';
+
+    // Se não encontrou dados, tenta disparar o GitHub Action
+    triggerGitHubAction();
+}
+
+/**
+ * GitHub API Interaction
+ */
+async function triggerGitHubAction() {
+    const token = localStorage.getItem('gh_pat');
+    const status = document.getElementById('autoLoadStatus');
+    const manual = document.getElementById('manualConnect');
+
+    if (!token) {
+        status.style.display = 'block';
+        status.innerHTML = `
+            <div style="background: #161b22; border: 1px solid #30363d; padding: 12px; border-radius: 6px; margin-bottom: 12px;">
+                <p style="margin: 0 0 8px 0; font-weight: bold; color: #e6edf3;">Configurar Automação</p>
+                <p style="margin: 0 0 12px 0; font-size: 12px;">Para atualizar os dados automaticamente, insira seu GitHub Personal Access Token (PAT):</p>
+                <input type="password" id="ghTokenInput" placeholder="ghp_..." style="width: 100%; margin-bottom: 8px;">
+                <button onclick="saveGitHubToken()" style="width: 100%; padding: 4px; font-size: 12px;">Salvar Token</button>
+                <p style="margin: 8px 0 0 0; font-size: 10px; color: #8b949e;">* O token é salvo apenas localmente no seu navegador.</p>
+            </div>
+        `;
+        return;
+    }
+
+    status.style.display = 'block';
+    status.textContent = '🔄 Solicitando atualização dos dados via GitHub...';
+    status.style.color = '#e3b341';
+
+    try {
+        const response = await fetch(`https://api.github.com/repos/${GITHUB_CONFIG.owner}/${GITHUB_CONFIG.repo}/actions/workflows/${GITHUB_CONFIG.workflow}/dispatches`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `token ${token}`,
+                'Accept': 'application/vnd.github.v3+json',
+            },
+            body: JSON.stringify({ ref: 'main' })
+        });
+
+        if (response.ok) {
+            status.textContent = '🚀 Automação iniciada! Os dados estarão prontos em alguns minutos. Recarregue a página em breve.';
+            status.style.color = '#3fb950';
+            // Oculta campos manuais se a automação foi disparada com sucesso
+            manual.style.display = 'none';
+        } else {
+            const err = await response.json();
+            console.error('GitHub API Error:', err);
+            status.textContent = '❌ Falha ao iniciar automação. Verifique seu Token.';
+            status.style.color = '#f85149';
+            localStorage.removeItem('gh_pat'); // Limpa token possivelmente inválido
+        }
+    } catch (e) {
+        console.error('Error triggering GitHub Action:', e);
+        status.textContent = '❌ Erro de conexão com GitHub.';
+        status.style.color = '#f85149';
+    }
+}
+
+function saveGitHubToken() {
+    const token = document.getElementById('ghTokenInput').value.trim();
+    if (token) {
+        localStorage.setItem('gh_pat', token);
+        triggerGitHubAction();
+    }
 }
 
 async function handleFolderSelect(event) {
