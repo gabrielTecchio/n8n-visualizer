@@ -9979,7 +9979,7 @@
     }
   },
   {
-    "updatedAt": "2026-01-21T18:56:56.385Z",
+    "updatedAt": "2026-01-30T14:39:59.317Z",
     "createdAt": "2025-06-09T11:58:19.391Z",
     "id": "wAg04RffGVdFgYzi",
     "name": "Daily news",
@@ -11683,6 +11683,19 @@
         "typeVersion": 1,
         "id": "8dd0a7a5-52dd-434b-984e-b182d2cc7124",
         "name": "Sticky Note2"
+      },
+      {
+        "parameters": {
+          "options": {}
+        },
+        "type": "@n8n/n8n-nodes-langchain.agent",
+        "typeVersion": 3.1,
+        "position": [
+          3008,
+          -1296
+        ],
+        "id": "f7446d09-f769-4e97-beea-0e8047fdc578",
+        "name": "AI Agent"
       }
     ],
     "connections": {
@@ -12590,9 +12603,9 @@
       "templateCredsSetupCompleted": true
     },
     "pinData": {},
-    "versionId": "3f76d0be-e022-4c10-a057-e094adac9b20",
+    "versionId": "9e7921dd-e8cf-4192-b534-41a4e04ec208",
     "activeVersionId": "3f76d0be-e022-4c10-a057-e094adac9b20",
-    "versionCounter": 87,
+    "versionCounter": 89,
     "triggerCount": 1,
     "shared": [
       {
@@ -12654,16 +12667,16 @@
     ],
     "tags": [
       {
-        "updatedAt": "2025-03-25T17:28:44.590Z",
-        "createdAt": "2025-03-25T17:28:44.590Z",
-        "id": "SGLcCfFPtH9ESbyP",
-        "name": "Marujo"
-      },
-      {
         "updatedAt": "2026-01-11T18:30:50.671Z",
         "createdAt": "2026-01-11T18:30:50.671Z",
         "id": "CDV4a4fZOILmvByk",
         "name": "processos-internos"
+      },
+      {
+        "updatedAt": "2025-03-25T17:28:44.590Z",
+        "createdAt": "2025-03-25T17:28:44.590Z",
+        "id": "SGLcCfFPtH9ESbyP",
+        "name": "Marujo"
       }
     ],
     "activeVersion": {
