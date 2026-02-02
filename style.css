@@ -257,6 +257,30 @@ button.secondary:hover {
     stroke-dasharray: 4;
 }
 
+/* Supabase Orphan Tables (not used by n8n) */
+.node.supabase_orphan circle {
+    fill: #1a7f4b;
+    stroke: #3ECF8E;
+    stroke-width: 2px;
+    stroke-dasharray: 5, 3;
+}
+
+.node.supabase_orphan text {
+    fill: #8b949e;
+    font-style: italic;
+}
+
+/* RPC Functions */
+.node.rpc_function circle {
+    fill: #6ee7b7;
+    stroke: #3ECF8E;
+    stroke-width: 2px;
+}
+
+.node.rpc_function text {
+    fill: #c9d1d9;
+}
+
 /* Colored credential borders per platform */
 .node.credential.supabase circle {
     stroke: #3ECF8E;

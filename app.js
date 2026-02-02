@@ -28,6 +28,8 @@ const GITHUB_CONFIG = {
 let groupState = {
     workflow: false,
     supabase: false,
+    supabase_orphan: false,
+    rpc_function: false,
     notion: false,
     bigquery: false,
     microsoft: false,
@@ -40,6 +42,8 @@ let groupState = {
 const colorMap = {
     workflow: '#f85149',
     supabase: '#3ecf8e',
+    supabase_orphan: '#1a7f4b',  // Darker green for orphan tables
+    rpc_function: '#6ee7b7',     // Light green for RPC functions
     notion: '#a371f7',
     bigquery: '#4285f4',
     microsoft: '#f9ba48',
@@ -101,6 +105,20 @@ function updateLegend() {
     if (!legend) return;
     legend.innerHTML = '';
 
+    // Friendly labels for legend
+    const labelMap = {
+        workflow: 'n8n',
+        supabase: 'Supabase',
+        supabase_orphan: 'Tabelas Órfãs',
+        rpc_function: 'Funções RPC',
+        notion: 'Notion',
+        bigquery: 'BigQuery',
+        microsoft: 'Microsoft',
+        google: 'Google',
+        openai: 'OpenAI',
+        other: 'Outros'
+    };
+
     Object.keys(groupState).forEach(type => {
         const item = document.createElement('div');
         item.className = `legend-item ${groupState[type] ? 'expanded' : 'collapsed'}`;
@@ -110,11 +128,12 @@ function updateLegend() {
         dot.className = 'legend-dot';
         dot.style.background = colorMap[type] || '#ccc';
         if (type === 'openai') dot.style.border = '1px solid #30363d';
+        if (type === 'supabase_orphan') {
+            dot.style.border = '2px dashed #3ECF8E';
+            dot.style.background = '#1a7f4b';
+        }
 
-        const label = document.createTextNode(
-            type === 'workflow' ? 'n8n' :
-                type.charAt(0).toUpperCase() + type.slice(1)
-        );
+        const label = document.createTextNode(labelMap[type] || type);
 
         item.appendChild(dot);
         item.appendChild(label);
@@ -129,6 +148,7 @@ function updateLegend() {
         legend.appendChild(item);
     });
 }
+
 
 /**
  * Toggles a group between expanded and collapsed
@@ -162,6 +182,7 @@ function addNode(map, id, label, type) {
 
 /**
  * Data Parser: Converts list of n8n workflow objects into graph nodes and links
+ * Also processes Supabase metadata (orphan tables and RPC functions)
  */
 
 function processWorkflows(data) {
@@ -169,8 +190,12 @@ function processWorkflows(data) {
     rawLinks = [];
     const nodeMap = new Map();
 
-    // Handle both legacy array and new metadata object
+    // Handle both legacy array and new stack_data format
     const workflows = Array.isArray(data) ? data : (data.workflows || []);
+    const supabaseData = data.supabase || null;
+
+    // Track which Supabase tables are referenced by n8n workflows
+    const tablesUsedByN8n = new Set();
 
     workflows.forEach(workflow => {
         const workflowId = workflow.id;
@@ -219,7 +244,8 @@ function processWorkflows(data) {
             // Supabase Extraction
             if (nodeType.includes('supabase')) {
                 const tableName = getVal(params.tableName || 'Supabase');
-                if (tableName) {
+                if (tableName && tableName !== 'Supabase') {
+                    tablesUsedByN8n.add(tableName);
                     const sourceId = `supabase_${tableName}`;
                     addNode(nodeMap, sourceId, tableName, 'supabase');
                     rawLinks.push({ source: workflowId, target: sourceId, type: 'uses' });
@@ -230,6 +256,29 @@ function processWorkflows(data) {
                         addNode(nodeMap, credId, `Cred: ${cName}`, 'credential supabase');
                         rawLinks.push({ source: sourceId, target: credId, type: 'auth' });
                     }
+                }
+
+                // Check for RPC function calls
+                const operation = getVal(params.operation);
+                if (operation === 'call' || operation === 'rpc') {
+                    const funcName = getVal(params.functionName || params.rpc || params.function);
+                    if (funcName) {
+                        const funcId = `rpc_${funcName}`;
+                        addNode(nodeMap, funcId, `rpc: ${funcName}`, 'rpc_function');
+                        rawLinks.push({ source: workflowId, target: funcId, type: 'calls' });
+                    }
+                }
+            }
+
+            // HTTP Request that might call Supabase RPC
+            if (nodeType.includes('httprequest') || nodeType.includes('http')) {
+                const url = getVal(params.url || '');
+                const rpcMatch = url.match(/\/rpc\/([a-zA-Z_][a-zA-Z0-9_]*)/);
+                if (rpcMatch) {
+                    const funcName = rpcMatch[1];
+                    const funcId = `rpc_${funcName}`;
+                    addNode(nodeMap, funcId, `rpc: ${funcName}`, 'rpc_function');
+                    rawLinks.push({ source: workflowId, target: funcId, type: 'calls' });
                 }
             }
 
@@ -287,9 +336,45 @@ function processWorkflows(data) {
                 }
             }
         });
-
-        // Other entity patterns can be added here...
     });
+
+    // Process Supabase metadata if available (from stack_data.json)
+    if (supabaseData) {
+        // Add orphan tables (not used by n8n)
+        (supabaseData.tables || []).forEach(table => {
+            const tableName = table.name;
+            const tableId = `supabase_${tableName}`;
+
+            // Only add if not already added by n8n extraction
+            if (!nodeMap.has(tableId)) {
+                // This is an orphan table (not used by n8n)
+                addNode(nodeMap, tableId, `${tableName} (orphan)`, 'supabase_orphan');
+            }
+        });
+
+        // Add RPC functions and their table dependencies
+        (supabaseData.functions || []).forEach(func => {
+            const funcName = func.name;
+            const funcId = `rpc_${funcName}`;
+
+            // Add function node if not already added
+            if (!nodeMap.has(funcId)) {
+                addNode(nodeMap, funcId, `rpc: ${funcName}`, 'rpc_function');
+            }
+
+            // Create links from function to tables it uses
+            (func.tables_used || []).forEach(tableName => {
+                const tableId = `supabase_${tableName}`;
+
+                // Ensure table node exists
+                if (!nodeMap.has(tableId)) {
+                    addNode(nodeMap, tableId, tableName, 'supabase_orphan');
+                }
+
+                rawLinks.push({ source: funcId, target: tableId, type: 'reads' });
+            });
+        });
+    }
 
     rawNodes = Array.from(nodeMap.values());
 
@@ -300,12 +385,28 @@ function processWorkflows(data) {
 
 
 
+
+
 /**
  * Graph Aggregator: Processes rawNodes and rawLinks based on groupState to produce graphData
  */
 function updateGraphData() {
     const idMap = new Map();
     const visibleNodesMap = new Map();
+
+    // Friendly labels for groups
+    const labelMap = {
+        workflow: 'n8n',
+        supabase: 'Supabase',
+        supabase_orphan: 'Tabelas Órfãs',
+        rpc_function: 'Funções RPC',
+        notion: 'Notion',
+        bigquery: 'BigQuery',
+        microsoft: 'Microsoft',
+        google: 'Google',
+        openai: 'OpenAI',
+        other: 'Outros'
+    };
 
     // 1. Group nodes as requested
     rawNodes.forEach(node => {
@@ -317,7 +418,7 @@ function updateGraphData() {
             idMap.set(node.id, groupId);
 
             if (!visibleNodesMap.has(groupId)) {
-                let labelName = effectiveGroup === 'workflow' ? 'n8n' : effectiveGroup.charAt(0).toUpperCase() + effectiveGroup.slice(1);
+                let labelName = labelMap[effectiveGroup] || effectiveGroup;
                 visibleNodesMap.set(groupId, {
                     id: groupId,
                     label: labelName,
@@ -328,7 +429,7 @@ function updateGraphData() {
             } else {
                 const gNode = visibleNodesMap.get(groupId);
                 gNode.count++;
-                let labelName = effectiveGroup === 'workflow' ? 'n8n' : effectiveGroup.charAt(0).toUpperCase() + effectiveGroup.slice(1);
+                let labelName = labelMap[effectiveGroup] || effectiveGroup;
                 gNode.label = `${labelName} (${gNode.count})`;
             }
         } else {
@@ -457,6 +558,8 @@ function renderGraph() {
  */
 function getGroup(node) {
     const type = node.type || '';
+    if (type === 'supabase_orphan') return 'supabase_orphan';
+    if (type === 'rpc_function') return 'rpc_function';
     if (type.includes('supabase')) return 'supabase';
     if (type.includes('notion')) return 'notion';
     if (type.includes('bigquery')) return 'bigquery';
@@ -466,6 +569,7 @@ function getGroup(node) {
     if (type.includes('workflow')) return 'workflow';
     return 'other';
 }
+
 
 /* UI Utility Functions */
 
@@ -558,7 +662,7 @@ async function tryAutoLoad() {
     status.textContent = 'Tentando carregar dados automáticos...';
     status.style.color = '#8b949e';
 
-    const paths = ['n8n_data.json', 'n8n_workflows_export/n8n_data.json'];
+    const paths = ['stack_data.json', 'n8n_data.json', 'n8n_workflows_export/n8n_data.json'];
 
     for (const path of paths) {
         try {

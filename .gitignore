@@ -5,16 +5,21 @@ __pycache__/
 venv/
 env/
 
-# Data
+# Data exports (generated files)
 n8n_workflows_export/
-old_files/
+supabase_export_tables/
 n8n_data.json
+supabase_data.json
+stack_data.json
+
+# Old/temp files
+old_files/
 
 # OS
 .DS_Store
 Thumbs.db
 
-supabase_export_tables/
+# Other untracked files
 bigquery_export_tables.py
 json2daw.py
 key.json 
@@ -24,4 +29,3 @@ n8n-dependency-visualizer copy.html
 n8n.drawio
 notion_export_tables.py
 prompt.txt
-supabase_export_tables.py
