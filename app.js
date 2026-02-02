@@ -28,8 +28,6 @@ const GITHUB_CONFIG = {
 let groupState = {
     workflow: false,
     supabase: false,
-    supabase_orphan: false,
-    rpc_function: false,
     notion: false,
     bigquery: false,
     microsoft: false,
@@ -42,8 +40,6 @@ let groupState = {
 const colorMap = {
     workflow: '#f85149',
     supabase: '#3ecf8e',
-    supabase_orphan: '#1a7f4b',  // Darker green for orphan tables
-    rpc_function: '#6ee7b7',     // Light green for RPC functions
     notion: '#a371f7',
     bigquery: '#4285f4',
     microsoft: '#f9ba48',
@@ -109,8 +105,6 @@ function updateLegend() {
     const labelMap = {
         workflow: 'n8n',
         supabase: 'Supabase',
-        supabase_orphan: 'Tabelas Órfãs',
-        rpc_function: 'Funções RPC',
         notion: 'Notion',
         bigquery: 'BigQuery',
         microsoft: 'Microsoft',
@@ -128,10 +122,6 @@ function updateLegend() {
         dot.className = 'legend-dot';
         dot.style.background = colorMap[type] || '#ccc';
         if (type === 'openai') dot.style.border = '1px solid #30363d';
-        if (type === 'supabase_orphan') {
-            dot.style.border = '2px dashed #3ECF8E';
-            dot.style.background = '#1a7f4b';
-        }
 
         const label = document.createTextNode(labelMap[type] || type);
 
@@ -340,39 +330,40 @@ function processWorkflows(data) {
 
     // Process Supabase metadata if available (from stack_data.json)
     if (supabaseData) {
-        // Add orphan tables (not used by n8n)
+        // Add orphan tables (not used by n8n) - same type as regular supabase, just different label
         (supabaseData.tables || []).forEach(table => {
             const tableName = table.name;
             const tableId = `supabase_${tableName}`;
 
             // Only add if not already added by n8n extraction
             if (!nodeMap.has(tableId)) {
-                // This is an orphan table (not used by n8n)
-                addNode(nodeMap, tableId, `${tableName} (orphan)`, 'supabase_orphan');
+                // This is an orphan table (not used by n8n) - use supabase type with orphan marker
+                const node = { id: tableId, label: tableName, type: 'supabase', isOrphan: true };
+                nodeMap.set(tableId, node);
             }
         });
 
-        // Add RPC functions and their table dependencies
+        // Add table dependencies for RPC functions that ARE used by n8n
+        // (function nodes were already added during workflow processing)
         (supabaseData.functions || []).forEach(func => {
             const funcName = func.name;
             const funcId = `rpc_${funcName}`;
 
-            // Add function node if not already added
-            if (!nodeMap.has(funcId)) {
-                addNode(nodeMap, funcId, `rpc: ${funcName}`, 'rpc_function');
+            // Only process if this function is already in the graph (used by n8n)
+            if (nodeMap.has(funcId)) {
+                // Create links from function to tables it uses
+                (func.tables_used || []).forEach(tableName => {
+                    const tableId = `supabase_${tableName}`;
+
+                    // Ensure table node exists
+                    if (!nodeMap.has(tableId)) {
+                        const node = { id: tableId, label: tableName, type: 'supabase', isOrphan: true };
+                        nodeMap.set(tableId, node);
+                    }
+
+                    rawLinks.push({ source: funcId, target: tableId, type: 'reads' });
+                });
             }
-
-            // Create links from function to tables it uses
-            (func.tables_used || []).forEach(tableName => {
-                const tableId = `supabase_${tableName}`;
-
-                // Ensure table node exists
-                if (!nodeMap.has(tableId)) {
-                    addNode(nodeMap, tableId, tableName, 'supabase_orphan');
-                }
-
-                rawLinks.push({ source: funcId, target: tableId, type: 'reads' });
-            });
         });
     }
 
@@ -398,8 +389,6 @@ function updateGraphData() {
     const labelMap = {
         workflow: 'n8n',
         supabase: 'Supabase',
-        supabase_orphan: 'Tabelas Órfãs',
-        rpc_function: 'Funções RPC',
         notion: 'Notion',
         bigquery: 'BigQuery',
         microsoft: 'Microsoft',
@@ -558,8 +547,6 @@ function renderGraph() {
  */
 function getGroup(node) {
     const type = node.type || '';
-    if (type === 'supabase_orphan') return 'supabase_orphan';
-    if (type === 'rpc_function') return 'rpc_function';
     if (type.includes('supabase')) return 'supabase';
     if (type.includes('notion')) return 'notion';
     if (type.includes('bigquery')) return 'bigquery';
